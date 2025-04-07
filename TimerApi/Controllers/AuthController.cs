@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using SharedLibrary.Services;
 using TimerApi.DTOs;
 
 namespace TimerApi.Controllers
@@ -8,15 +10,32 @@ namespace TimerApi.Controllers
     public class AuthController(
         UserManager<IdentityUser> userMgr,
         RoleManager<IdentityRole> roleMgr,
-        ILogger<AuthController> logger) : ControllerBase
+        SignInManager<IdentityUser> signInMgr,
+        ILogger<AuthController> logger,
+        IConfiguration config) : ControllerBase
     {
+        [AllowAnonymous]
         [HttpPost]
         [Route("login")]
         public async Task<IActionResult> Login([FromBody] UserDto dto)
         {
-            return null;
+            if (!ModelState.IsValid) return BadRequest(new { error = "email or password is empty" });
+            var user = await userMgr.FindByEmailAsync(dto.Email);
+            if (user == null) return Unauthorized(new { error = "not found user with this email" });
+            var result = await signInMgr.PasswordSignInAsync(user, dto.Password, false, false);
+            if (!result.Succeeded)
+            {
+                logger.LogInformation("User entered wrong password");
+                return Unauthorized(new { error = "wrong password" });
+            }
+            var key = config["Jwt:Key"];
+            var issuer = config["Jwt:Issuer"];
+            var roles = await userMgr.GetRolesAsync(user);
+            var token = new TokenGenerator().GenerateToken(key, issuer, user, roles);
+            return Ok(new { token = token });
         }
 
+        [AllowAnonymous]
         [HttpPost]
         [Route("register")]
         public async Task<IActionResult> Register([FromBody] UserDto dto)
@@ -35,6 +54,7 @@ namespace TimerApi.Controllers
                 logger.LogError($"cant create user with email:{dto.Email} and password: {dto.Password}");
                 return BadRequest(new { error = $"something went wrong" });
             }
+            await userMgr.AddToRoleAsync(newUser, "User");
             return Ok();
         }
     }

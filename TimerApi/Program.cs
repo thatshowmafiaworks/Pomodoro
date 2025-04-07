@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using SharedLibrary.Data;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +25,21 @@ builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(opts =>
+    {
+        opts.TokenValidationParameters = new()
+        {
+            ValidateIssuer = true,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        };
+    });
+
 
 builder.Services.AddOpenApi();
 
@@ -30,28 +48,32 @@ var app = builder.Build();
 
 // middleware
 
-using (var scope = app.Services.CreateScope())
-{
-    var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
-    var roleMgr = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+/*            Seeding                */
 
-    if (!await roleMgr.RoleExistsAsync("Admin"))
-        await roleMgr.CreateAsync(new IdentityRole("Admin"));
-    if (!await roleMgr.RoleExistsAsync("User"))
-        await roleMgr.CreateAsync(new IdentityRole("User"));
+//using (var scope = app.Services.CreateScope())
+//{
+//    var userMgr = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+//    var roleMgr = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-    var admin = await userMgr.FindByEmailAsync("admin@admin.com");
-    if (admin == null)
-    {
-        await userMgr.CreateAsync(new IdentityUser
-        {
-            UserName = "admin@admin.com",
-            Email = "admin@admin.com"
-        },
-        "Admin_123");
-        await userMgr.AddToRoleAsync(await userMgr.FindByEmailAsync("admin@admin.com"), "Admin");
-    }
-}
+//    if (!await roleMgr.RoleExistsAsync("Admin"))
+//        await roleMgr.CreateAsync(new IdentityRole("Admin"));
+//    if (!await roleMgr.RoleExistsAsync("User"))
+//        await roleMgr.CreateAsync(new IdentityRole("User"));
+
+//    var claim = new Claim(ClaimTypes.Name, "name");
+
+//    var admin = await userMgr.FindByEmailAsync("admin@admin.com");
+//    if (admin == null)
+//    {
+//        await userMgr.CreateAsync(new IdentityUser
+//        {
+//            UserName = "admin@admin.com",
+//            Email = "admin@admin.com"
+//        },
+//        "Admin_123");
+//        await userMgr.AddToRoleAsync(await userMgr.FindByEmailAsync("admin@admin.com"), "Admin");
+//    }
+//}
 
 
 if (app.Environment.IsDevelopment())
@@ -61,6 +83,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
