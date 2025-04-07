@@ -12,7 +12,9 @@ namespace TimerApi.Controllers
         RoleManager<IdentityRole> roleMgr,
         SignInManager<IdentityUser> signInMgr,
         ILogger<AuthController> logger,
-        IConfiguration config) : ControllerBase
+        IConfiguration config,
+        TokenGenerator tokenGenerator
+        ) : ControllerBase
     {
         [AllowAnonymous]
         [HttpPost]
@@ -31,7 +33,7 @@ namespace TimerApi.Controllers
             var key = config["Jwt:Key"];
             var issuer = config["Jwt:Issuer"];
             var roles = await userMgr.GetRolesAsync(user);
-            var token = new TokenGenerator().GenerateToken(key, issuer, user, roles);
+            var token = tokenGenerator.GenerateToken(key, issuer, user, roles);
             return Ok(new { token = token });
         }
 

@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using SharedLibrary.Data;
+using SharedLibrary.Repositories;
+using SharedLibrary.Services;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,6 +44,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 
 builder.Services.AddOpenApi();
+
+builder.Services.AddSingleton<TokenGenerator>();
+builder.Services.AddSingleton<IPomodoroTimerRepository, PomodoroTimerRepository>();
 
 var app = builder.Build();
 
